@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS cuenta (
     id INTEGER PRIMARY KEY,
     saldo INTEGER
 )
-""")
+""") 
+print("hola mundo")
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS movimientos (
