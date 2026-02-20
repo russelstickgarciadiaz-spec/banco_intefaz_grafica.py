@@ -3,22 +3,31 @@ from tkinter import messagebox
 import mysql.connector
 from datetime import datetime
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 import os
 
 # ---------------- CONEXIÓN MYSQL ----------------
 conexion = mysql.connector.connect(
     host="localhost",
     user="root",
-    password="",  # Cambia si tu XAMPP tiene contraseña
+    password="",
     database="banco"
 )
 cursor = conexion.cursor(buffered=True)
 
-# ---------------- VARIABLES GLOBALES ----------------
+# ---------------- VARIABLES ----------------
 usuario_actual_id = None  # Guardará el ID del usuario que ingresó
 
-# ---------------- FUNCIONES ----------------
+# Colores y fuentes
+COLOR_PRINCIPAL = "#ff9800"      # Naranja principal
+COLOR_SECUNDARIO = "#ffe0b2"     # Naranja claro para fondos
+COLOR_TEXTO = "#3e2723"          # Marrón oscuro para texto
+COLOR_BOTON = "#fb8c00"          # Naranja botón
+COLOR_BOTON_HOVER = "#ef6c00"    # Naranja más intenso al pasar el mouse
+FUENTE_TITULO = ("Helvetica", 16, "bold")
+FUENTE_NORMAL = ("Verdana", 12)
+FUENTE_BOTON = ("Verdana", 12, "bold")
+
+# ---------------- FUNCIONES BASE ----------------
 def obtener_saldo():
     cursor.execute("SELECT saldo FROM usuarios WHERE id = %s", (usuario_actual_id,))
     resultado = cursor.fetchone()
@@ -81,8 +90,9 @@ def retirar():
 def ver_movimientos():
     ventana = tk.Toplevel(root)
     ventana.title("Movimientos")
+    ventana.configure(bg=COLOR_SECUNDARIO)
 
-    texto = tk.Text(ventana, width=50, height=15)
+    texto = tk.Text(ventana, width=50, height=15, font=FUENTE_NORMAL, bg="white", fg=COLOR_TEXTO)
     texto.pack(padx=10, pady=10)
 
     cursor.execute("SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC", (usuario_actual_id,))
@@ -95,54 +105,38 @@ def ver_movimientos():
             texto.insert(tk.END, f"{f[0]} - {f[1]}: ${f[2]}\n")
 
 def exportar_pdf():
-    cursor.execute(
-        "SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC",
-        (usuario_actual_id,)
-    )
+    cursor.execute("SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC", (usuario_actual_id,))
     filas = cursor.fetchall()
 
     if not filas:
-        messagebox.showinfo("Info", "No hay movimientos para exportar")
+        messagebox.showinfo("Información", "No hay movimientos para exportar")
         return
 
-    # Crear carpeta "PDFs" si no existe
-    carpeta_pdf = os.path.join(os.getcwd(), "PDFs")
-    if not os.path.exists(carpeta_pdf):
-        os.mkdir(carpeta_pdf)
+    # Carpeta PDFs
+    if not os.path.exists("PDFs"):
+        os.makedirs("PDFs")
 
-    archivo_pdf = os.path.join(carpeta_pdf, f"movimientos_usuario{usuario_actual_id}.pdf")
-
-    # Crear PDF con ReportLab
-    c = canvas.Canvas(archivo_pdf, pagesize=letter)
+    archivo_pdf = f"PDFs/movimientos_usuario{usuario_actual_id}.pdf"
+    c = canvas.Canvas(archivo_pdf)
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(50, 800, f"Movimientos del usuario {usuario_actual_id}")
+    y = 760
     c.setFont("Helvetica", 12)
-
-    c.drawString(50, 750, f"Movimientos del usuario {usuario_actual_id}")
-    y = 720
-    c.drawString(50, y, "Fecha - Tipo - Monto")
-    y -= 20
-
     for f in filas:
-        texto = f"{f[0]} - {f[1]} - ${f[2]}"
-        c.drawString(50, y, texto)
-        y -= 20
+        c.drawString(50, y, f"{f[0]} - {f[1]}: ${f[2]}")
+        y -= 25
         if y < 50:
             c.showPage()
-            c.setFont("Helvetica", 12)
-            y = 750
-
+            y = 800
     c.save()
-
-    # Abrir el PDF automáticamente en Windows
-    if os.path.exists(archivo_pdf):
-        os.startfile(archivo_pdf)
-    else:
-        messagebox.showerror("Error", "No se pudo crear el PDF")
+    messagebox.showinfo("Éxito", f"PDF generado: {archivo_pdf}")
+    os.startfile(archivo_pdf)
 
 def cerrar_aplicacion():
     conexion.close()
     root.destroy()
 
-# ---------------- LOGIN POR DOCUMENTO ----------------
+# ---------------- LOGIN ----------------
 def login():
     global usuario_actual_id
     doc = entry_doc.get()
@@ -155,45 +149,62 @@ def login():
     else:
         messagebox.showerror("Error", "Documento no registrado")
 
-# ---------------- INICIAR APLICACIÓN ----------------
+# ---------------- INTERFAZ PRINCIPAL ----------------
 def iniciar_app():
     global root, lbl_saldo, entry_monto, btn_ingresar, btn_retirar, btn_mov, btn_pdf, btn_salir
 
     root = tk.Tk()
     root.title("Banco - Multiusuario")
+    root.geometry("450x450")
+    root.configure(bg=COLOR_SECUNDARIO)
 
-    lbl_saldo = tk.Label(root, text=f"Saldo: ${obtener_saldo()}", font=("Arial", 14))
-    lbl_saldo.pack(pady=10)
+    lbl_saldo = tk.Label(root, text=f"Saldo: ${obtener_saldo()}", font=FUENTE_TITULO, bg=COLOR_SECUNDARIO, fg=COLOR_TEXTO)
+    lbl_saldo.pack(pady=15)
 
-    entry_monto = tk.Entry(root)
-    entry_monto.pack(pady=5)
+    entry_monto = tk.Entry(root, font=FUENTE_NORMAL, width=25, bg="white", fg=COLOR_TEXTO, bd=3, relief="ridge")
+    entry_monto.pack(pady=10)
 
-    btn_ingresar = tk.Button(root, text="Ingresar dinero", command=ingresar)
+    btn_ingresar = tk.Button(root, text="Ingresar dinero", command=ingresar,
+                             font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
+                             activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
     btn_ingresar.pack(pady=5)
 
-    btn_retirar = tk.Button(root, text="Retirar dinero", command=retirar)
+    btn_retirar = tk.Button(root, text="Retirar dinero", command=retirar,
+                            font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
+                            activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
     btn_retirar.pack(pady=5)
 
-    btn_mov = tk.Button(root, text="Ver movimientos", command=ver_movimientos)
+    btn_mov = tk.Button(root, text="Ver movimientos", command=ver_movimientos,
+                        font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
+                        activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
     btn_mov.pack(pady=5)
 
-    btn_pdf = tk.Button(root, text="Exportar PDF", command=exportar_pdf)
+    btn_pdf = tk.Button(root, text="Exportar PDF", command=exportar_pdf,
+                        font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
+                        activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
     btn_pdf.pack(pady=5)
 
-    btn_salir = tk.Button(root, text="Salir", command=cerrar_aplicacion)
-    btn_salir.pack(pady=10)
+    btn_salir = tk.Button(root, text="Salir", command=cerrar_aplicacion,
+                          font=FUENTE_BOTON, fg="white", bg="#e65100",
+                          activebackground="#bf360c", activeforeground="white", width=20, height=2, cursor="hand2")
+    btn_salir.pack(pady=15)
 
     root.mainloop()
 
-# ---------------- VENTANA DE LOGIN ----------------
+# ---------------- LOGIN ESTÉTICO ----------------
 login_window = tk.Tk()
-login_window.title("Login - Documento")
+login_window.title("Banco - Login")
+login_window.geometry("350x250")
+login_window.configure(bg=COLOR_SECUNDARIO)
 
-tk.Label(login_window, text="Ingrese su documento:").pack(padx=10, pady=10)
-entry_doc = tk.Entry(login_window)
-entry_doc.pack(pady=5)
+tk.Label(login_window, text="Ingrese su documento:", font=FUENTE_TITULO, bg=COLOR_SECUNDARIO, fg=COLOR_TEXTO).pack(pady=20)
+entry_doc = tk.Entry(login_window, font=FUENTE_NORMAL, width=25, bg="white", fg=COLOR_TEXTO, bd=3, relief="ridge")
+entry_doc.pack(pady=10)
 
-btn_login = tk.Button(login_window, text="Ingresar", command=login)
-btn_login.pack(pady=10)
+btn_login = tk.Button(login_window, text="Ingresar", command=login,
+                      font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
+                      activebackground=COLOR_BOTON_HOVER, activeforeground="white",
+                      width=20, height=2, cursor="hand2")
+btn_login.pack(pady=15)
 
 login_window.mainloop()
