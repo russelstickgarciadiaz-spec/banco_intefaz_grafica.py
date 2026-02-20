@@ -2,19 +2,22 @@ import tkinter as tk
 from tkinter import messagebox
 import mysql.connector
 from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 # ---------------- CONEXIÓN MYSQL ----------------
 conexion = mysql.connector.connect(
     host="localhost",
     user="root",
-    password="",
+    password="",  # Cambia si tu XAMPP tiene contraseña
     database="banco"
 )
 cursor = conexion.cursor(buffered=True)
 
-# ---------------- FUNCIONES ----------------
+# ---------------- VARIABLES GLOBALES ----------------
 usuario_actual_id = None  # Guardará el ID del usuario que ingresó
 
+# ---------------- FUNCIONES ----------------
 def obtener_saldo():
     cursor.execute("SELECT saldo FROM usuarios WHERE id = %s", (usuario_actual_id,))
     resultado = cursor.fetchone()
@@ -90,6 +93,35 @@ def ver_movimientos():
         for f in filas:
             texto.insert(tk.END, f"{f[0]} - {f[1]}: ${f[2]}\n")
 
+def exportar_pdf():
+    cursor.execute("SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC", (usuario_actual_id,))
+    filas = cursor.fetchall()
+
+    if not filas:
+        messagebox.showinfo("Info", "No hay movimientos para exportar")
+        return
+
+    archivo_pdf = f"movimientos_usuario{usuario_actual_id}.pdf"
+    c = canvas.Canvas(archivo_pdf, pagesize=letter)
+    c.setFont("Helvetica", 12)
+
+    c.drawString(50, 750, f"Movimientos del usuario {usuario_actual_id}")
+    y = 720
+    c.drawString(50, y, "Fecha - Tipo - Monto")
+    y -= 20
+
+    for f in filas:
+        texto = f"{f[0]} - {f[1]} - ${f[2]}"
+        c.drawString(50, y, texto)
+        y -= 20
+        if y < 50:  # Nueva página si se llena
+            c.showPage()
+            c.setFont("Helvetica", 12)
+            y = 750
+
+    c.save()
+    messagebox.showinfo("Éxito", f"PDF creado: {archivo_pdf}")
+
 def cerrar_aplicacion():
     conexion.close()
     root.destroy()
@@ -107,8 +139,9 @@ def login():
     else:
         messagebox.showerror("Error", "Documento no registrado")
 
+# ---------------- INICIAR APLICACIÓN ----------------
 def iniciar_app():
-    global root, lbl_saldo, entry_monto, btn_ingresar, btn_retirar, btn_mov, btn_salir
+    global root, lbl_saldo, entry_monto, btn_ingresar, btn_retirar, btn_mov, btn_pdf, btn_salir
 
     root = tk.Tk()
     root.title("Banco - Multiusuario")
@@ -127,6 +160,9 @@ def iniciar_app():
 
     btn_mov = tk.Button(root, text="Ver movimientos", command=ver_movimientos)
     btn_mov.pack(pady=5)
+
+    btn_pdf = tk.Button(root, text="Exportar PDF", command=exportar_pdf)
+    btn_pdf.pack(pady=5)
 
     btn_salir = tk.Button(root, text="Salir", command=cerrar_aplicacion)
     btn_salir.pack(pady=10)
