@@ -106,11 +106,12 @@ def exportar_pdf():
         return
 
     # Crear carpeta "PDFs" si no existe
-    if not os.path.exists("PDFs"):
-        os.mkdir("PDFs")
+    carpeta_pdf = os.path.join(os.getcwd(), "PDFs")
+    if not os.path.exists(carpeta_pdf):
+        os.mkdir(carpeta_pdf)
 
-    archivo_pdf = f"PDFs/movimientos_usuario{usuario_actual_id}.pdf"
-    
+    archivo_pdf = os.path.join(carpeta_pdf, f"movimientos_usuario{usuario_actual_id}.pdf")
+
     # Crear PDF con ReportLab
     c = canvas.Canvas(archivo_pdf, pagesize=letter)
     c.setFont("Helvetica", 12)
@@ -130,9 +131,12 @@ def exportar_pdf():
             y = 750
 
     c.save()
-    
+
     # Abrir el PDF automáticamente en Windows
-    os.startfile(archivo_pdf)
+    if os.path.exists(archivo_pdf):
+        os.startfile(archivo_pdf)
+    else:
+        messagebox.showerror("Error", "No se pudo crear el PDF")
 
 def cerrar_aplicacion():
     conexion.close()
