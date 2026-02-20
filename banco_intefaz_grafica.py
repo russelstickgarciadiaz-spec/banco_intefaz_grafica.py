@@ -4,6 +4,7 @@ import mysql.connector
 from datetime import datetime
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+import os
 
 # ---------------- CONEXIÓN MYSQL ----------------
 conexion = mysql.connector.connect(
@@ -94,14 +95,23 @@ def ver_movimientos():
             texto.insert(tk.END, f"{f[0]} - {f[1]}: ${f[2]}\n")
 
 def exportar_pdf():
-    cursor.execute("SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC", (usuario_actual_id,))
+    cursor.execute(
+        "SELECT fecha, tipo, monto FROM movimientos WHERE usuario_id = %s ORDER BY fecha DESC",
+        (usuario_actual_id,)
+    )
     filas = cursor.fetchall()
 
     if not filas:
         messagebox.showinfo("Info", "No hay movimientos para exportar")
         return
 
-    archivo_pdf = f"movimientos_usuario{usuario_actual_id}.pdf"
+    # Crear carpeta "PDFs" si no existe
+    if not os.path.exists("PDFs"):
+        os.mkdir("PDFs")
+
+    archivo_pdf = f"PDFs/movimientos_usuario{usuario_actual_id}.pdf"
+    
+    # Crear PDF con ReportLab
     c = canvas.Canvas(archivo_pdf, pagesize=letter)
     c.setFont("Helvetica", 12)
 
@@ -114,13 +124,15 @@ def exportar_pdf():
         texto = f"{f[0]} - {f[1]} - ${f[2]}"
         c.drawString(50, y, texto)
         y -= 20
-        if y < 50:  # Nueva página si se llena
+        if y < 50:
             c.showPage()
             c.setFont("Helvetica", 12)
             y = 750
 
     c.save()
-    messagebox.showinfo("Éxito", f"PDF creado: {archivo_pdf}")
+    
+    # Abrir el PDF automáticamente en Windows
+    os.startfile(archivo_pdf)
 
 def cerrar_aplicacion():
     conexion.close()
