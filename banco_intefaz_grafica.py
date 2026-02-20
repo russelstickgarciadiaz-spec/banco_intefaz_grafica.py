@@ -4,6 +4,7 @@ import mysql.connector
 from datetime import datetime
 from reportlab.pdfgen import canvas
 import os
+import random
 
 # ---------------- CONEXIÓN MYSQL ----------------
 conexion = mysql.connector.connect(
@@ -23,7 +24,8 @@ COLOR_SECUNDARIO = "#ffe0b2"     # Naranja claro para fondos
 COLOR_TEXTO = "#3e2723"          # Marrón oscuro para texto
 COLOR_BOTON = "#fb8c00"          # Naranja botón
 COLOR_BOTON_HOVER = "#ef6c00"    # Naranja más intenso al pasar el mouse
-FUENTE_TITULO = ("Helvetica", 16, "bold")
+COLOR_INSANO = ["#ff5722", "#ffccbc", "#ff8a65", "#ff7043"]  # Tonos locos para botones
+FUENTE_TITULO = ("Helvetica", 18, "bold")
 FUENTE_NORMAL = ("Verdana", 12)
 FUENTE_BOTON = ("Verdana", 12, "bold")
 
@@ -38,7 +40,7 @@ def actualizar_saldo(nuevo_saldo):
     conexion.commit()
     lbl_saldo.config(text=f"Saldo: ${nuevo_saldo}")
 
-def ingresar():
+def ingresar_dinero():
     try:
         monto = int(entry_monto.get())
         if monto <= 0:
@@ -60,7 +62,7 @@ def ingresar():
     messagebox.showinfo("Éxito", f"Ingresó ${monto}")
     entry_monto.delete(0, tk.END)
 
-def retirar():
+def retirar_dinero():
     try:
         monto = int(entry_monto.get())
         if monto <= 0:
@@ -90,7 +92,7 @@ def retirar():
 def ver_movimientos():
     ventana = tk.Toplevel(root)
     ventana.title("Movimientos")
-    ventana.configure(bg=COLOR_SECUNDARIO)
+    ventana.configure(bg=random.choice(COLOR_INSANO))
 
     texto = tk.Text(ventana, width=50, height=15, font=FUENTE_NORMAL, bg="white", fg=COLOR_TEXTO)
     texto.pack(padx=10, pady=10)
@@ -112,7 +114,6 @@ def exportar_pdf():
         messagebox.showinfo("Información", "No hay movimientos para exportar")
         return
 
-    # Carpeta PDFs
     if not os.path.exists("PDFs"):
         os.makedirs("PDFs")
 
@@ -136,7 +137,7 @@ def cerrar_aplicacion():
     conexion.close()
     root.destroy()
 
-# ---------------- LOGIN ----------------
+# ---------------- LOGIN / REGISTRO ----------------
 def login():
     global usuario_actual_id
     doc = entry_doc.get()
@@ -149,62 +150,77 @@ def login():
     else:
         messagebox.showerror("Error", "Documento no registrado")
 
+def registrar_usuario():
+    doc = entry_doc.get()
+    if not doc.strip():
+        messagebox.showerror("Error", "Ingrese un documento válido")
+        return
+    # Verificar si ya existe
+    cursor.execute("SELECT id FROM usuarios WHERE documento = %s", (doc,))
+    if cursor.fetchone():
+        messagebox.showerror("Error", "Documento ya registrado")
+        return
+    # Insertar nuevo usuario con saldo inicial 100
+    cursor.execute("INSERT INTO usuarios (documento, saldo) VALUES (%s, %s)", (doc, 100))
+    conexion.commit()
+    messagebox.showinfo("Éxito", f"Usuario {doc} registrado con saldo inicial de $100")
+
 # ---------------- INTERFAZ PRINCIPAL ----------------
 def iniciar_app():
     global root, lbl_saldo, entry_monto, btn_ingresar, btn_retirar, btn_mov, btn_pdf, btn_salir
 
     root = tk.Tk()
-    root.title("Banco - Multiusuario")
-    root.geometry("450x450")
-    root.configure(bg=COLOR_SECUNDARIO)
+    root.title("Banco - Multiusuario Sigma Mode")
+    root.geometry("500x500")
+    root.configure(bg=random.choice(COLOR_INSANO))
 
-    lbl_saldo = tk.Label(root, text=f"Saldo: ${obtener_saldo()}", font=FUENTE_TITULO, bg=COLOR_SECUNDARIO, fg=COLOR_TEXTO)
+    lbl_saldo = tk.Label(root, text=f"Saldo: ${obtener_saldo()}", font=FUENTE_TITULO, bg=random.choice(COLOR_INSANO), fg=COLOR_TEXTO)
     lbl_saldo.pack(pady=15)
 
     entry_monto = tk.Entry(root, font=FUENTE_NORMAL, width=25, bg="white", fg=COLOR_TEXTO, bd=3, relief="ridge")
     entry_monto.pack(pady=10)
 
-    btn_ingresar = tk.Button(root, text="Ingresar dinero", command=ingresar,
-                             font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
-                             activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
+    def crear_boton(texto, comando):
+        color = random.choice(COLOR_INSANO)
+        return tk.Button(root, text=texto, command=comando,
+                         font=FUENTE_BOTON, fg="white", bg=color,
+                         activebackground=COLOR_BOTON_HOVER, activeforeground="white",
+                         width=20, height=2, cursor="hand2")
+
+    btn_ingresar = crear_boton("Ingresar dinero", ingresar_dinero)
     btn_ingresar.pack(pady=5)
-
-    btn_retirar = tk.Button(root, text="Retirar dinero", command=retirar,
-                            font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
-                            activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
+    btn_retirar = crear_boton("Retirar dinero", retirar_dinero)
     btn_retirar.pack(pady=5)
-
-    btn_mov = tk.Button(root, text="Ver movimientos", command=ver_movimientos,
-                        font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
-                        activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
+    btn_mov = crear_boton("Ver movimientos", ver_movimientos)
     btn_mov.pack(pady=5)
-
-    btn_pdf = tk.Button(root, text="Exportar PDF", command=exportar_pdf,
-                        font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
-                        activebackground=COLOR_BOTON_HOVER, activeforeground="white", width=20, height=2, cursor="hand2")
+    btn_pdf = crear_boton("Exportar PDF", exportar_pdf)
     btn_pdf.pack(pady=5)
-
-    btn_salir = tk.Button(root, text="Salir", command=cerrar_aplicacion,
-                          font=FUENTE_BOTON, fg="white", bg="#e65100",
-                          activebackground="#bf360c", activeforeground="white", width=20, height=2, cursor="hand2")
+    btn_salir = crear_boton("Salir", cerrar_aplicacion)
     btn_salir.pack(pady=15)
 
     root.mainloop()
 
 # ---------------- LOGIN ESTÉTICO ----------------
 login_window = tk.Tk()
-login_window.title("Banco - Login")
-login_window.geometry("350x250")
-login_window.configure(bg=COLOR_SECUNDARIO)
+login_window.title("Banco - Login / Registro Sigma")
+login_window.geometry("400x300")
+login_window.configure(bg=random.choice(COLOR_INSANO))
 
-tk.Label(login_window, text="Ingrese su documento:", font=FUENTE_TITULO, bg=COLOR_SECUNDARIO, fg=COLOR_TEXTO).pack(pady=20)
+tk.Label(login_window, text="Ingrese su documento:", font=FUENTE_TITULO, bg=random.choice(COLOR_INSANO), fg=COLOR_TEXTO).pack(pady=20)
 entry_doc = tk.Entry(login_window, font=FUENTE_NORMAL, width=25, bg="white", fg=COLOR_TEXTO, bd=3, relief="ridge")
 entry_doc.pack(pady=10)
 
+# Botones de login y registro
 btn_login = tk.Button(login_window, text="Ingresar", command=login,
                       font=FUENTE_BOTON, fg="white", bg=COLOR_BOTON,
                       activebackground=COLOR_BOTON_HOVER, activeforeground="white",
                       width=20, height=2, cursor="hand2")
-btn_login.pack(pady=15)
+btn_login.pack(pady=10)
+
+btn_registro = tk.Button(login_window, text="Registrar Usuario", command=registrar_usuario,
+                         font=FUENTE_BOTON, fg="white", bg="#ff7043",
+                         activebackground="#e64a19", activeforeground="white",
+                         width=20, height=2, cursor="hand2")
+btn_registro.pack(pady=5)
 
 login_window.mainloop()
